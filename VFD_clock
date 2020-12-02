@@ -1,13 +1,14 @@
-/* # VFD-Display-Clock
-A nice desktop clock from a POS VFD CD-7220 
+/*
+ * VFD Clock rev 8
+ * Month with name
+ * Date, UTC time, Local time
+ * 
+ * Author: YO3HJV, Adrian
+ * If you like it and use it, please send me an e-mail
+ * at: yo3hjv@gmail.com with a nice picture from your QTH or surroundings.
+ * 
+ */
 
-A long time ago I played with a VFD from a cashier machine.
-
-Here is the code.
-If you like it, buy me a beer at the next meeting
-Revision: 4 
-
-*/
 
 
 #include <Wire.h>
@@ -18,139 +19,133 @@ SoftwareSerial mySerial(3, 2); // RX, TX
 
 
 void setup() {
-                          Serial.begin(9600);
-                          mySerial.begin(9600);  
-                          
-                          delay(1500);
-                          mySerial.write(0x0C);   // Clear ALL
-                               delay(10);
+  Serial.begin(9600);
+  while (!Serial) ; // wait for serial
+  delay(200);
+  Serial.println("DS1307RTC Read Test");
+  Serial.println("-------------------");
 
-                             // initialise display
-                              mySerial.write(0x1B);
-                              mySerial.write(40);
-                        }
+    mySerial.begin(9600);
+    delay(10);
+    mySerial.write(0x0C);   // Clear ALL
+    delay(10);
 
-      void loop() {
- 
-                            //         dateVFD();
-              watchVFD();  // this is where the magic happens
-             
-                           //  text1VFD();
-                           //     datetimeSerial();
+// Display init
+         mySerial.write(0x1B);
+         mySerial.write(40);
+         fixedVFD();
+}
 
+void fixedVFD(){
+    mySerial.write(0x1F);   // Set cursor
+    mySerial.write(0x24);   // Set Cursor
+    mySerial.write(1);      // position x
+    mySerial.write(1);      // position y
+      mySerial.write("UT");
+
+    //  insert DATE dd/mm/yy
+
+    mySerial.write(0x1F);   // Set cursor
+    mySerial.write(0x24);   // Set Cursor
+    mySerial.write(19);      // position x
+    mySerial.write(1);      // position y  
+       mySerial.write("LT");  
+  
+}
+
+void loop() {
+           
+              utcVFD();
+              loctimeVFD();
+              dateVFD();
 
 }
 
+void dateVFD(){
+     tmElements_t tm;
+     RTC.read(tm);     
+ 
+// set cursor for  DATE   DD MMM YY 
+    mySerial.write(0x1F);   // Set cursor
+    mySerial.write(0x24);   // Set Cursor
+    mySerial.write(6);      // position x
+    mySerial.write(1);      // position y
 
-      void text1VFD(){
-                    mySerial.write(0x1B);   // set cursor HOME
+        niceTime(tm.Day);
+  
+     
+    switch(tm.Month){
+      case 1: mySerial.print(" Jan ");
+      case 2: mySerial.print(" Feb ");
+      case 3: mySerial.print(" Mar ");
+      case 4: mySerial.print(" Apr ");
+      case 5: mySerial.print(" May ");
+      case 6: mySerial.print(" Jun ");
+      case 7: mySerial.print(" Jul ");
+      case 8: mySerial.print(" Aug ");
+      case 9: mySerial.print(" Sep ");
+      case 10: mySerial.print(" Oct ");
+      case 11: mySerial.print(" Nov ");
+      case 12: mySerial.print("-Dec-");
+      //default: mySerial.print(" ERR ");
+      break;
+              
+    }
+        mySerial.println(tmYearToCalendar(tm.Year));
+    }
+
+
+void utcVFD(){
       
-                    mySerial.write(0x1B);   // Set cursor
-                    mySerial.write(" YO3HJV HAM SHACK");   // text. put here whatever you want
+     tmElements_t tm;
+     RTC.read(tm);
 
-                    mySerial.write(0x1F);   // Set horizontal scroll
-                    mySerial.write(0x03);   // Set horizontal scroll
-               }
+ 
+// set cursor for  UTC TIME 
+    mySerial.write(0x1F);   // Set cursor
+    mySerial.write(0x24);   // Set Cursor
+    mySerial.write(1);      // position x
+    mySerial.write(2);      // position y
 
-
-      void print2digits(int number) {
-                  if (number >= 0 && number < 10) {
-                            mySerial.write('0');
-                             }
-                       mySerial.print(number);
-                       }
-
-
-
-     void vfdClear (){
-        mySerial.write(0x0C);   // Clear ALL
-        delay(10);
-        }
+// print UTC TIME on VFD with nice 0 when only one digit
+    niceTime((tm.Hour-2));   // local time offset.
+    mySerial.write(':');
+    niceTime(tm.Minute);
+    mySerial.write(':');
+    niceTime(tm.Second);
+           }
 
 
-        
-     void dateVFD() {
-
-
-
-                          mySerial.write(0x1F);   // Set cursor
-                          mySerial.write(0x24);   // Set Cursor
-                          mySerial.write(7);      // position x
-                          mySerial.write(1);      // position y
-
-                  tmElements_t tm;
-                     int day = tm.Day;
-                     int month = tm.Month;
-                     int year = tm.Year;
-    
-                          mySerial.print(day);
-                           mySerial.print('-');
-                          mySerial.print(month);
-                          mySerial.print('-');
-                          mySerial.print(year);
-                  }
-
-    void printnice(int nice) {
-                if (nice >= 0 && nice < 10) {
-                     mySerial.write('0');
-                     }
-                     mySerial.print(nice);
-                  }
-
-   void watchVFD(){
+   
+void loctimeVFD(){
       
-                             tmElements_t tm;
-                                   
-                        mySerial.write(0x1F);   // Set cursor
-                          mySerial.write(0x24);   // Set Cursor
-                          mySerial.write(1);      // position x
-                          mySerial.write(1);      // position y
+     tmElements_t tm;
+     RTC.read(tm);     
+ 
+// set cursor for  Local TIME 
+    mySerial.write(0x1F);   // Set cursor
+    mySerial.write(0x24);   // Set Cursor
+    mySerial.write(13);      // position x
+    mySerial.write(2);      // position y
+
+// print UTC TIME on VFD with nice 0 when only one digit
+    niceTime((tm.Hour));
+    mySerial.write(':');
+    niceTime(tm.Minute);
+    mySerial.write(':');
+    niceTime(tm.Second);
+           }
 
 
-                     int day = tm.Day;
-                     int month = tm.Month;
-                     int year = tm.Year;
-    
-                          mySerial.print(day);
-                           mySerial.print('-');
-                          mySerial.print(month);
-                          mySerial.print('-');
-                          mySerial.print(year);
 
-                     //     mySerial.print{"  ");
-                                                     //  vfdClear();
-/*
-                                                     // set cursor for  TIME 
-                                               mySerial.write(0x1F);   // Set cursor
-                                               mySerial.write(0x24);   // Set Cursor
-                                               mySerial.write(7);      // position x
-                                               mySerial.write(2);      // position y
-*/
-                                         // print TIME  
-                                               print2digits(tm.Hour);
-                                                mySerial.write(':');
-                                               print2digits(tm.Minute);
-                                                mySerial.write(':');
-                                               print2digits(tm.Second);
-                                              
-                                              }
+void niceTime(int number) {
+  if (number >= 0 && number < 10) {
+    mySerial.write('0');
+  }
+  mySerial.print(number);
+}
 
-                                                 
 
-   void datetimeSerial(){
-                             tmElements_t tm;
-                                               Serial.print("Ok, Time = ");
-                                               print2digits(tm.Hour);
-                                               Serial.write(':');
-                                               print2digits(tm.Minute);
-                                               Serial.write(':');
-                                               print2digits(tm.Second);
-                                               Serial.print(", Date (D/M/Y) = ");
-                                               Serial.print(tm.Day);
-                                               Serial.write('/');
-                                               Serial.print(tm.Month);
-                                               Serial.write('/');
-                                               Serial.print(tmYearToCalendar(tm.Year));
-                                               Serial.println();
-                           }
+
+
 
