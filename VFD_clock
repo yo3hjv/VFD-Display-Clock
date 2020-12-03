@@ -1,14 +1,22 @@
 /*
- * VFD Clock rev 8
- * Month with name
- * Date, UTC time, Local time
+ * VFD Clock rev final release
+ * Dec. 2020
+ *      Month with name
+ *      Date, UTC time, Local time
+ *      UTC offset
  * 
  * Author: YO3HJV, Adrian
- * If you like it and use it, please send me an e-mail
+ * LICENSE: If you like it and use it, please send me an e-mail
  * at: yo3hjv@gmail.com with a nice picture from your QTH or surroundings.
  * 
+ * The time is set with the help of the PC, therefore
+ * we will define UTC as a result of the Local time + or -
+ * offset.
+ * This will affect the date changing; the date will change 
+ * according to Local time.
+ *   HW: DS1307 on I2C
+ *       VFD TTL UART input connect to Tx port defined on mySerial
  */
-
 
 
 #include <Wire.h>
@@ -18,115 +26,114 @@
 SoftwareSerial mySerial(3, 2); // RX, TX
 
 
+ int utcHour;
+ int localHour;
+
+ int UTCoffset = -2; // Here we have the local time offset
+
 void setup() {
+  // Uncomment for debugg
+/* 
   Serial.begin(9600);
   while (!Serial) ; // wait for serial
   delay(200);
   Serial.println("DS1307RTC Read Test");
   Serial.println("-------------------");
-
+*/
     mySerial.begin(9600);
     delay(10);
-    mySerial.write(0x0C);   // Clear ALL
+    mySerial.write(0x0C);     // Clear ALL
     delay(10);
 
-// Display init
+                              // Display init
          mySerial.write(0x1B);
          mySerial.write(40);
-         fixedVFD();
+         fixedVFD();          // Show legend on VFD
 }
 
-void fixedVFD(){
-    mySerial.write(0x1F);   // Set cursor
-    mySerial.write(0x24);   // Set Cursor
-    mySerial.write(1);      // position x
-    mySerial.write(1);      // position y
-      mySerial.write("UT");
 
-    //  insert DATE dd/mm/yy
-
-    mySerial.write(0x1F);   // Set cursor
-    mySerial.write(0x24);   // Set Cursor
-    mySerial.write(19);      // position x
-    mySerial.write(1);      // position y  
-       mySerial.write("LT");  
-  
-}
 
 void loop() {
-           
+                // I used functions for each element to print
+                // It will be easyer to make further mods in the code
               utcVFD();
               loctimeVFD();
               dateVFD();
-
 }
+
+// Print DATE DD-MMM-YYYY on the upper line of VFD
 
 void dateVFD(){
      tmElements_t tm;
      RTC.read(tm);     
  
-// set cursor for  DATE   DD MMM YY 
+                            // set cursor for  DATE   DD MMM YY 
     mySerial.write(0x1F);   // Set cursor
     mySerial.write(0x24);   // Set Cursor
     mySerial.write(6);      // position x
     mySerial.write(1);      // position y
-
+                            // Day
         niceTime(tm.Day);
-  
-     
+                            // make Month name from Month number     
     switch(tm.Month){
-      case 1: mySerial.print(" Jan ");
-      case 2: mySerial.print(" Feb ");
-      case 3: mySerial.print(" Mar ");
-      case 4: mySerial.print(" Apr ");
-      case 5: mySerial.print(" May ");
-      case 6: mySerial.print(" Jun ");
-      case 7: mySerial.print(" Jul ");
-      case 8: mySerial.print(" Aug ");
-      case 9: mySerial.print(" Sep ");
-      case 10: mySerial.print(" Oct ");
-      case 11: mySerial.print(" Nov ");
+      case 1: mySerial.print("-Jan-");
+      case 2: mySerial.print("-Feb-");
+      case 3: mySerial.print("-Mar-");
+      case 4: mySerial.print("-Apr-");
+      case 5: mySerial.print("-May-");
+      case 6: mySerial.print("-Jun-");
+      case 7: mySerial.print("-Jul-");
+      case 8: mySerial.print("-Aug-");
+      case 9: mySerial.print("-Sep-");
+      case 10: mySerial.print("-Oct-");
+      case 11: mySerial.print("-Nov-");
       case 12: mySerial.print("-Dec-");
-      //default: mySerial.print(" ERR ");
-      break;
-              
-    }
+      //default: mySerial.print("/ERR/");
+      break; }
+                            // Year
         mySerial.println(tmYearToCalendar(tm.Year));
     }
 
+// Print UTC time with the offset in respect to Local time
 
-void utcVFD(){
-      
+void utcVFD(){      
      tmElements_t tm;
      RTC.read(tm);
-
+      localHour = tm.Hour;
+      utcHour = localHour + UTCoffset;
+  if (utcHour < 0)
+        {
+          utcHour += 24;
+        }
  
-// set cursor for  UTC TIME 
+                            // set cursor for  UTC TIME 
     mySerial.write(0x1F);   // Set cursor
     mySerial.write(0x24);   // Set Cursor
     mySerial.write(1);      // position x
     mySerial.write(2);      // position y
 
-// print UTC TIME on VFD with nice 0 when only one digit
-    niceTime((tm.Hour-2));   // local time offset.
+                            // print UTC TIME on VFD with nice 0 when only one digit
+    niceTime(utcHour);      // local time offset.
     mySerial.write(':');
     niceTime(tm.Minute);
     mySerial.write(':');
     niceTime(tm.Second);
+                            // Uncomment for debug. Just to test the result
+    //Serial.println(utcHour);
            }
 
 
+// Print Local time on VFD
    
-void loctimeVFD(){
-      
+void loctimeVFD(){      
      tmElements_t tm;
      RTC.read(tm);     
  
 // set cursor for  Local TIME 
-    mySerial.write(0x1F);   // Set cursor
-    mySerial.write(0x24);   // Set Cursor
+    mySerial.write(0x1F);    // Set cursor
+    mySerial.write(0x24);    // Set Cursor
     mySerial.write(13);      // position x
-    mySerial.write(2);      // position y
+    mySerial.write(2);       // position y
 
 // print UTC TIME on VFD with nice 0 when only one digit
     niceTime((tm.Hour));
@@ -137,6 +144,7 @@ void loctimeVFD(){
            }
 
 
+// Common function to format hour and minutes
 
 void niceTime(int number) {
   if (number >= 0 && number < 10) {
@@ -145,7 +153,20 @@ void niceTime(int number) {
   mySerial.print(number);
 }
 
+// Put "UT" and "LT" on the upper line of VFD
 
+void fixedVFD(){
+    mySerial.write(0x1F);   // Set cursor
+    mySerial.write(0x24);   // Set Cursor
+    mySerial.write(1);      // position x
+    mySerial.write(1);      // position y
+      mySerial.write("UT");
 
+    //  
 
-
+    mySerial.write(0x1F);   // Set cursor
+    mySerial.write(0x24);   // Set Cursor
+    mySerial.write(19);      // position x
+    mySerial.write(1);      // position y  
+       mySerial.write("LT");    
+}
